@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Templates - Gestión de Estados</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <h1>🔥 WhatsApp Templates</h1>
+            <p class="subtitle">Gestión de Estado Local vs Global con Clases JavaScript</p>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <main>
+            <!-- CONTROLES -->
+            <div class="controls">
+                <!-- FORMULARIO -->
+                <section class="form-section">
+                    <h3>✨ Crear Nueva Plantilla</h3>
+                    <form id="templateForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="titulo">Título</label>
+                                <input type="text" id="titulo" placeholder="Ej: Saludo de bienvenida" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="categoria">Categoría</label>
+                                <select id="categoria" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="soporte">Soporte</option>
+                                    <option value="ventas">Ventas</option>
+                                    <option value="personal">Personal</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="hashtag">Hashtag</label>
+                                <input type="text" id="hashtag" placeholder="Ej: #bienvenida" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="mensaje">Mensaje</label>
+                            <textarea id="mensaje" placeholder="Escribe tu mensaje de plantilla aquí..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn">🚀 Crear Plantilla</button>
+                    </form>
+                </section>
+
+                <!-- CONTROLES DE VISTA -->
+                <section class="view-controls">
+                    <div>
+                        <h4 style="margin-bottom: 10px; color: #128c7e;">Vista</h4>
+                        <div class="view-toggle">
+                            <button class="view-btn active" data-view="list">📋 Lista</button>
+                            <button class="view-btn" data-view="grid">🔲 Grilla</button>
+                        </div>
+                    </div>
+                    <div class="stats">
+                        <h4>Estado Global</h4>
+                        <p id="templateCount">0 plantillas creadas</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- CONTENEDOR DE PLANTILLAS -->
+            <section class="templates-container">
+                <div class="templates-header">
+                    <h3>📱 Plantillas Creadas</h3>
+                    <div class="state-indicator">Estado Global Activo</div>
+                </div>
+                <div id="templatesDisplay">
+                    <div class="empty-state">
+                        <div class="icon">📝</div>
+                        <h4>No hay plantillas creadas</h4>
+                        <p>Crea tu primera plantilla usando el formulario de arriba</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer>
+            <p>🎯 Proyecto: Gestión de Estados | JavaScript Moderno con Clases</p>
+        </footer>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="js/models/Template.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
