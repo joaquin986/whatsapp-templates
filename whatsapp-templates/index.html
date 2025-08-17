@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Templates - Gestión con Store</title>
+    <title>WhatsApp Templates - Persistencia LocalStorage</title>
     <link rel="stylesheet" href="css/styles.css">
     <style>
-        /* Estilos adicionales para notificaciones */
+        /* Estilos adicionales para persistencia */
         @keyframes slideInRight {
             from {
                 transform: translateX(100%);
@@ -17,10 +17,21 @@
                 opacity: 1;
             }
         }
+        
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
 
-        /* Indicador de Store activo */
-        .store-indicator {
-            background: linear-gradient(45deg, #007bff, #0056b3);
+        /* Indicador de persistencia mejorado */
+        .persistence-indicator {
+            background: linear-gradient(45deg, #28a745, #20c997);
             color: white;
             padding: 8px 15px;
             border-radius: 20px;
@@ -28,47 +39,109 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            animation: pulse 2s infinite;
+            animation: pulse 3s infinite;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .persistence-indicator.inactive {
+            background: linear-gradient(45deg, #ffc107, #fd7e14);
+            animation: none;
         }
 
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
         }
 
-        /* Mejoras visuales para indicar Store */
-        .store-info {
-            background: linear-gradient(135deg, #e3f2fd, #ffffff);
-            border: 2px solid #2196f3;
+        /* Información de persistencia */
+        .persistence-info {
+            background: linear-gradient(135deg, #e8f5e8, #ffffff);
+            border: 2px solid #28a745;
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 20px;
             text-align: center;
         }
 
-        .store-info h4 {
-            color: #1976d2;
+        .persistence-info h4 {
+            color: #155724;
             margin-bottom: 8px;
             font-size: 1.1rem;
         }
 
-        .store-info p {
+        .persistence-info p {
             color: #666;
             font-size: 14px;
             margin: 0;
         }
 
-        /* Estilo especial para formulario con Store */
-        .form-section.store-connected {
-            border-left: 4px solid #2196f3;
+        /* Botón de reset especial */
+        .btn-reset {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
         }
 
-        .form-section.store-connected h3::after {
-            content: " 🔗 Store";
+        .btn-reset:hover {
+            background: linear-gradient(45deg, #c82333, #a71e2a);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        /* Indicador de estado de Storage */
+        .storage-status {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .storage-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .storage-status.empty {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        /* Formulario con indicador de persistencia */
+        .form-section.persistence-enabled {
+            border-left: 4px solid #28a745;
+        }
+
+        .form-section.persistence-enabled h3::after {
+            content: " 💾 AutoSave";
             font-size: 0.8rem;
-            color: #2196f3;
+            color: #28a745;
             font-weight: normal;
+        }
+
+        /* Mejoras responsivas para persistencia */
+        @media (max-width: 768px) {
+            .persistence-info {
+                padding: 12px;
+            }
+            
+            .btn-reset {
+                width: 100%;
+                margin-top: 15px;
+            }
         }
     </style>
 </head>
@@ -77,21 +150,21 @@
         <!-- HEADER -->
         <header>
             <h1>🔥 WhatsApp Templates</h1>
-            <p class="subtitle">Gestión Centralizada con Patrón Store</p>
+            <p class="subtitle">Persistencia con LocalStorage - Lab 15</p>
         </header>
 
         <!-- MAIN CONTENT -->
         <main>
-            <!-- INFORMACIÓN DEL STORE -->
-            <div class="store-info">
-                <h4>📦 Estado Centralizado Activo</h4>
-                <p>Todas las plantillas se gestionan desde un Store único que notifica cambios automáticamente</p>
+            <!-- INFORMACIÓN DE PERSISTENCIA -->
+            <div class="persistence-info">
+                <h4>💾 Persistencia Activada</h4>
+                <p>Tus plantillas se guardan automáticamente en LocalStorage y persisten entre sesiones</p>
             </div>
 
             <!-- CONTROLES -->
             <div class="controls">
                 <!-- FORMULARIO -->
-                <section class="form-section store-connected">
+                <section class="form-section persistence-enabled">
                     <h3>✨ Crear Nueva Plantilla</h3>
                     <form id="templateForm">
                         <div class="form-grid">
@@ -118,14 +191,50 @@
                             <label for="mensaje">Mensaje</label>
                             <textarea id="mensaje" placeholder="Escribe tu mensaje de plantilla aquí..." required></textarea>
                         </div>
-                        <button type="submit" class="btn">🚀 Guardar en Store</button>
+                        <button type="submit" class="btn">💾 Guardar Plantilla</button>
                     </form>
                 </section>
 
-                <!-- CONTROLES DE VISTA -->
+                <!-- CONTROLES DE VISTA Y PERSISTENCIA -->
                 <section class="view-controls">
                     <div>
                         <h4 style="margin-bottom: 10px; color: #128c7e;">Vista</h4>
                         <div class="view-toggle">
                             <button class="view-btn active" data-view="list">📋 Lista</button>
-                            <button class="view-btn" data-view="grid">🔲 Gr
+                            <button class="view-btn" data-view="grid">🔲 Grilla</button>
+                        </div>
+                    </div>
+                    
+                    <div class="stats">
+                        <h4>Estado del Store</h4>
+                        <p id="templateCount">Cargando...</p>
+                        <div class="storage-status" id="storageStatus">
+                            Verificando LocalStorage...
+                        </div>
+                    </div>
+                    
+                    <div class="persistence-indicator" id="persistenceIndicator">
+                        💾 LocalStorage Activo
+                    </div>
+                    
+                    <!-- BOTÓN RESET (HU3) -->
+                    <div style="text-align: center;">
+                        <button class="btn-reset" id="btnEliminarTodo" onclick="eliminarTodasLasPlantillas()">
+                            🗑️ Eliminar Todo
+                        </button>
+                        <small style="display: block; margin-top: 5px; color: #666;">
+                            Elimina Store y LocalStorage
+                        </small>
+                    </div>
+                </section>
+            </div>
+
+            <!-- CONTENEDOR DE PLANTILLAS -->
+            <section class="templates-container">
+                <div class="templates-header">
+                    <h3>📱 Plantillas Persistentes</h3>
+                    <div class="state-indicator" id="stateIndicator">Cargando desde LocalStorage...</div>
+                </div>
+                <div id="templatesDisplay">
+                    <div class="empty-state">
+                        <div class="icon">⏳</div>

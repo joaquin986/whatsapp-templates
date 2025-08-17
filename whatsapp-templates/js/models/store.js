@@ -1,36 +1,62 @@
 /**
- * ===== STORE - GESTIÓN CENTRALIZADA DE ESTADO =====
- * Patrón Store para manejar el estado global de plantillas
+ * ===== STORE - GESTIÓN CENTRALIZADA DE ESTADO CON PERSISTENCIA =====
+ * Patrón Store mejorado con integración a LocalStorage
  * Implementa inmutabilidad y notificaciones de cambios
  */
 
 /**
  * Store principal de la aplicación
- * Gestiona el estado centralizado de las plantillas
+ * Gestiona el estado centralizado de las plantillas con persistencia
  */
 const Store = {
     // Estado interno - no acceder directamente
     _state: {
-        plantillas: [
-            // Plantillas de ejemplo precargadas (HU1)
-            new Template(
-                'Bienvenida VIP',
-                '¡Hola {{NOMBRE}}! 🌟 Bienvenido/a a nuestro servicio premium. Tu cuenta VIP está lista. ¿En qué podemos ayudarte hoy?',
-                '#bienvenidaVIP',
-                'marketing'
-            ),
-            new Template(
-                'Confirmación Exitosa',
-                'Tu solicitud #{{ID}} ha sido procesada exitosamente ✅. Recibirás una notificación cuando esté lista. ¡Gracias por confiar en nosotros!',
-                '#confirmacion',
-                'soporte'
-            )
-        ],
-        ultimaActualizacion: new Date()
+        plantillas: [], // Se inicializará desde persistencia
+        ultimaActualizacion: new Date(),
+        persistenciaHabilitada: true
     },
 
     // Suscriptores para notificaciones de cambios
     _suscriptores: [],
+
+    /**
+     * Inicializar Store con datos de persistencia
+     * Se llama al cargar la aplicación
+     */
+    inicializar() {
+        try {
+            // Verificar si persistence.js está disponible
+            if (typeof Persistence !== 'undefined') {
+                console.log('🔗 Store: Inicializando con persistencia...');
+                
+                // Cargar plantillas desde LocalStorage
+                const plantillasGuardadas = Persistence.cargarPlantillas();
+                
+                // Establecer plantillas sin disparar notificaciones aún
+                this._state.plantillas = plantillasGuardadas;
+                this._state.ultimaActualizacion = new Date();
+                
+                console.log('✅ Store inicializado con persistencia:', {
+                    total: plantillasGuardadas.length,
+                    tieneDatosGuardados: Persistence.tieneDatosGuardados()
+                });
+                
+                // Notificar inicialización completa
+                this._notificarCambios('STORE_INICIALIZADO', {
+                    plantillas: plantillasGuardadas.length,
+                    fuente: Persistence.tieneDatosGuardados() ? 'localStorage' : 'default'
+                });
+                
+            } else {
+                console.warn('⚠️ Persistencia no disponible, usando plantillas por defecto');
+                this._cargarPlantillasDefault();
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al inicializar Store:', error.message);
+            this._cargarPlantillasDefault();
+        }
+    },
 
     /**
      * Obtener todas las plantillas (HU1)
@@ -52,7 +78,7 @@ const Store = {
 
     /**
      * Agregar nueva plantilla (HU2)
-     * Usa inmutabilidad - no muta el array original
+     * Usa inmutabilidad y dispara auto-guardado
      * @param {Template} nuevaPlantilla - Plantilla a agregar
      * @returns {boolean} true si se agregó exitosamente
      */
@@ -72,7 +98,7 @@ const Store = {
             this._state.plantillas = [...this._state.plantillas, nuevaPlantilla];
             this._state.ultimaActualizacion = new Date();
 
-            // Notificar cambios a los suscriptores
+            // Notificar cambios a los suscriptores (incluyendo persistencia)
             this._notificarCambios('PLANTILLA_AGREGADA', {
                 plantilla: nuevaPlantilla,
                 total: this._state.plantillas.length
@@ -89,7 +115,7 @@ const Store = {
 
     /**
      * Eliminar plantilla por ID (HU3)
-     * Usa inmutabilidad - no muta el array original
+     * Usa inmutabilidad y dispara auto-guardado
      * @param {string} id - ID de la plantilla a eliminar
      * @returns {boolean} true si se eliminó exitosamente
      */
@@ -107,7 +133,7 @@ const Store = {
             );
             this._state.ultimaActualizacion = new Date();
 
-            // Notificar cambios a los suscriptores
+            // Notificar cambios a los suscriptores (incluyendo persistencia)
             this._notificarCambios('PLANTILLA_ELIMINADA', {
                 plantillaEliminada: plantillaAEliminar,
                 total: this._state.plantillas.length
@@ -118,6 +144,75 @@ const Store = {
 
         } catch (error) {
             console.error('❌ Store: Error al eliminar plantilla:', error.message);
+            return false;
+        }
+    },
+
+    /**
+     * Limpiar todas las plantillas (HU3)
+     * Resetea el Store y dispara limpieza de persistencia
+     * @returns {boolean} true si se limpiaron exitosamente
+     */
+    limpiarTodas() {
+        try {
+            const totalAnterior = this._state.plantillas.length;
+            
+            // Crear array vacío (inmutabilidad)
+            this._state.plantillas = [];
+            this._state.ultimaActualizacion = new Date();
+
+            // Notificar cambios (esto disparará la limpieza de LocalStorage)
+            this._notificarCambios('TODAS_ELIMINADAS', {
+                totalEliminadas: totalAnterior
+            });
+
+            console.log('🧹 Store: Todas las plantillas eliminadas');
+            return true;
+
+        } catch (error) {
+            console.error('❌ Store: Error al limpiar plantillas:', error.message);
+            return false;
+        }
+    },
+
+    /**
+     * Resetear Store a estado inicial
+     * Útil para reinicialización completa
+     */
+    reset() {
+        this._state.plantillas = [];
+        this._state.ultimaActualizacion = new Date();
+        // No limpiar suscriptores para mantener la conexión con persistencia
+        
+        console.log('🔄 Store: Reseteado a estado inicial');
+    },
+
+    /**
+     * Recargar desde persistencia
+     * Forzar recarga desde LocalStorage
+     * @returns {boolean} true si se recargó exitosamente
+     */
+    recargarDesdePersistencia() {
+        try {
+            if (typeof Persistence !== 'undefined') {
+                const plantillasGuardadas = Persistence.cargarPlantillas();
+                
+                // Reemplazar plantillas actuales
+                this._state.plantillas = plantillasGuardadas;
+                this._state.ultimaActualizacion = new Date();
+                
+                // Notificar recarga
+                this._notificarCambios('RECARGADO_DESDE_PERSISTENCIA', {
+                    total: plantillasGuardadas.length
+                });
+                
+                console.log('🔄 Store: Recargado desde persistencia');
+                return true;
+            } else {
+                throw new Error('Persistencia no disponible');
+            }
+        } catch (error) {
+            console.error('❌ Error al recargar desde persistencia:', error.message);
             return false;
         }
     },
@@ -139,7 +234,9 @@ const Store = {
             total: plantillas.length,
             categorias: categorias,
             ultimaActualizacion: this._state.ultimaActualizacion,
-            estaVacio: plantillas.length === 0
+            estaVacio: plantillas.length === 0,
+            persistenciaHabilitada: this._state.persistenciaHabilitada,
+            infoLocalStorage: typeof Persistence !== 'undefined' ? Persistence.getInfoStorage() : null
         };
     },
 
@@ -159,26 +256,6 @@ const Store = {
             }
             return false;
         });
-    },
-
-    /**
-     * Limpiar todas las plantillas
-     * @returns {boolean} true si se limpiaron exitosamente
-     */
-    limpiarTodas() {
-        const totalAnterior = this._state.plantillas.length;
-        
-        // Crear array vacío (inmutabilidad)
-        this._state.plantillas = [];
-        this._state.ultimaActualizacion = new Date();
-
-        // Notificar cambios
-        this._notificarCambios('TODAS_ELIMINADAS', {
-            totalEliminadas: totalAnterior
-        });
-
-        console.log('🧹 Store: Todas las plantillas eliminadas');
-        return true;
     },
 
     /**
@@ -203,6 +280,43 @@ const Store = {
     },
 
     /**
+     * Obtener estado completo (solo para debugging)
+     * @returns {Object} Estado completo del store
+     */
+    _getEstadoCompleto() {
+        return {
+            plantillas: this.getPlantillas().map(p => p.getEstadoLocal()),
+            estadisticas: this.getEstadisticas(),
+            suscriptores: this._suscriptores.length,
+            persistencia: typeof Persistence !== 'undefined' ? Persistence.getInfoStorage() : 'No disponible'
+        };
+    },
+
+    /**
+     * Cargar plantillas por defecto
+     * @private
+     */
+    _cargarPlantillasDefault() {
+        this._state.plantillas = [
+            new Template(
+                'Bienvenida por Defecto',
+                '¡Hola! 👋 Bienvenido/a. Estamos aquí para ayudarte. ¿En qué podemos asistirte?',
+                '#bienvenida',
+                'soporte'
+            ),
+            new Template(
+                'Confirmación Estándar',
+                'Tu solicitud ha sido recibida ✅. Te contactaremos pronto. ¡Gracias!',
+                '#confirmacion',
+                'soporte'
+            )
+        ];
+        
+        this._state.ultimaActualizacion = new Date();
+        console.log('📝 Store: Plantillas por defecto cargadas');
+    },
+
+    /**
      * Notificar cambios a todos los suscriptores
      * @private
      * @param {string} tipo - Tipo de cambio
@@ -224,29 +338,6 @@ const Store = {
                 console.error('❌ Error en suscriptor del Store:', error);
             }
         });
-    },
-
-    /**
-     * Obtener estado completo (solo para debugging)
-     * @returns {Object} Estado completo del store
-     */
-    _getEstadoCompleto() {
-        return {
-            plantillas: this.getPlantillas().map(p => p.getEstadoLocal()),
-            estadisticas: this.getEstadisticas(),
-            suscriptores: this._suscriptores.length
-        };
-    },
-
-    /**
-     * Resetear store a estado inicial
-     */
-    reset() {
-        this._state.plantillas = [];
-        this._state.ultimaActualizacion = new Date();
-        this._suscriptores = [];
-        
-        console.log('🔄 Store: Reseteado a estado inicial');
     }
 };
 
@@ -288,15 +379,48 @@ function storeEstaVacio() {
     return Store.getEstadisticas().estaVacio;
 }
 
+/**
+ * Configurar Store con persistencia automática
+ * Conecta el Store con el sistema de persistencia
+ */
+function configurarStoreConPersistencia() {
+    // Suscribirse a cambios para auto-guardar
+    if (typeof Persistence !== 'undefined') {
+        Store.suscribirse((evento) => {
+            // Auto-guardar después de cambios que afecten las plantillas
+            if (['PLANTILLA_AGREGADA', 'PLANTILLA_ELIMINADA', 'TODAS_ELIMINADAS'].includes(evento.tipo)) {
+                console.log('💾 Auto-guardado disparado por:', evento.tipo);
+                
+                // Pequeño delay para asegurar que el Store esté actualizado
+                setTimeout(() => {
+                    const plantillas = Store.getPlantillas();
+                    Persistence.guardarPlantillas(plantillas);
+                }, 10);
+            }
+        });
+        
+        console.log('🔗 Store configurado con persistencia automática');
+    } else {
+        console.warn('⚠️ Persistencia no disponible para configuración automática');
+    }
+}
+
 // Hacer el Store disponible globalmente para debugging
 if (typeof window !== 'undefined') {
     window.Store = Store;
+    window.crearYAgregarPlantilla = crearYAgregarPlantilla;
+    window.obtenerPlantillasParaRender = obtenerPlantillasParaRender;
+    window.storeEstaVacio = storeEstaVacio;
+    window.configurarStoreConPersistencia = configurarStoreConPersistencia;
+    
     window.debugStore = {
         estado: () => Store._getEstadoCompleto(),
         plantillas: () => Store.getPlantillas(),
         estadisticas: () => Store.getEstadisticas(),
         limpiar: () => Store.limpiarTodas(),
-        reset: () => Store.reset()
+        reset: () => Store.reset(),
+        recargar: () => Store.recargarDesdePersistencia(),
+        inicializar: () => Store.inicializar()
     };
     
     console.log('🔧 Store Debug disponible: window.debugStore');
