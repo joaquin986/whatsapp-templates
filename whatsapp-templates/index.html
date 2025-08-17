@@ -3,23 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Templates - Gestión de Estados</title>
+    <title>WhatsApp Templates - Gestión con Store</title>
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* Estilos adicionales para notificaciones */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Indicador de Store activo */
+        .store-indicator {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        }
+
+        /* Mejoras visuales para indicar Store */
+        .store-info {
+            background: linear-gradient(135deg, #e3f2fd, #ffffff);
+            border: 2px solid #2196f3;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .store-info h4 {
+            color: #1976d2;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .store-info p {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* Estilo especial para formulario con Store */
+        .form-section.store-connected {
+            border-left: 4px solid #2196f3;
+        }
+
+        .form-section.store-connected h3::after {
+            content: " 🔗 Store";
+            font-size: 0.8rem;
+            color: #2196f3;
+            font-weight: normal;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <!-- HEADER -->
         <header>
             <h1>🔥 WhatsApp Templates</h1>
-            <p class="subtitle">Gestión de Estado Local vs Global con Clases JavaScript</p>
+            <p class="subtitle">Gestión Centralizada con Patrón Store</p>
         </header>
 
         <!-- MAIN CONTENT -->
         <main>
+            <!-- INFORMACIÓN DEL STORE -->
+            <div class="store-info">
+                <h4>📦 Estado Centralizado Activo</h4>
+                <p>Todas las plantillas se gestionan desde un Store único que notifica cambios automáticamente</p>
+            </div>
+
             <!-- CONTROLES -->
             <div class="controls">
                 <!-- FORMULARIO -->
-                <section class="form-section">
+                <section class="form-section store-connected">
                     <h3>✨ Crear Nueva Plantilla</h3>
                     <form id="templateForm">
                         <div class="form-grid">
@@ -46,7 +118,7 @@
                             <label for="mensaje">Mensaje</label>
                             <textarea id="mensaje" placeholder="Escribe tu mensaje de plantilla aquí..." required></textarea>
                         </div>
-                        <button type="submit" class="btn">🚀 Crear Plantilla</button>
+                        <button type="submit" class="btn">🚀 Guardar en Store</button>
                     </form>
                 </section>
 
@@ -56,40 +128,4 @@
                         <h4 style="margin-bottom: 10px; color: #128c7e;">Vista</h4>
                         <div class="view-toggle">
                             <button class="view-btn active" data-view="list">📋 Lista</button>
-                            <button class="view-btn" data-view="grid">🔲 Grilla</button>
-                        </div>
-                    </div>
-                    <div class="stats">
-                        <h4>Estado Global</h4>
-                        <p id="templateCount">0 plantillas creadas</p>
-                    </div>
-                </section>
-            </div>
-
-            <!-- CONTENEDOR DE PLANTILLAS -->
-            <section class="templates-container">
-                <div class="templates-header">
-                    <h3>📱 Plantillas Creadas</h3>
-                    <div class="state-indicator">Estado Global Activo</div>
-                </div>
-                <div id="templatesDisplay">
-                    <div class="empty-state">
-                        <div class="icon">📝</div>
-                        <h4>No hay plantillas creadas</h4>
-                        <p>Crea tu primera plantilla usando el formulario de arriba</p>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <!-- FOOTER -->
-        <footer>
-            <p>🎯 Proyecto: Gestión de Estados | JavaScript Moderno con Clases</p>
-        </footer>
-    </div>
-
-    <!-- SCRIPTS -->
-    <script src="js/models/Template.js"></script>
-    <script src="js/app.js"></script>
-</body>
-</html>
+                            <button class="view-btn" data-view="grid">🔲 Gr
