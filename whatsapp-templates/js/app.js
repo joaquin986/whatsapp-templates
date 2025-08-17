@@ -1,444 +1,365 @@
 /**
- * ===== APLICACIÓN PRINCIPAL CON PERSISTENCIA =====
- * Interfaz de usuario que consume el Store con LocalStorage
- * Implementa las HU1, HU2, HU3 con persistencia automática
+ * app.js - Aplicación principal con persistencia y sincronización
+ * Manejo de la interfaz con guardado automático y confirmaciones
  */
 
-// ===== VARIABLES DE APLICACIÓN =====
-let vistaActual = 'list'; // Estado de vista (lista/grilla)
-let cancelarSuscripcionStore = null; // Para cancelar suscripción al Store
-
-// ===== RENDERIZACIÓN DE UI =====
+// Variables globales
+let plantillaEditandoId = null;
+let ultimaPlantillaEliminada = null; // Para el Logro 2
 
 /**
- * Renderizar todas las plantillas desde el Store
- * Lee desde el estado centralizado y actualiza el DOM
+ * Inicializar aplicación
  */
-function renderizarPlantillasDesdeStore() {
-    const contenedor = document.getElementById('templatesDisplay');
-    const plantillas = obtenerPlantillasParaRender(); // Leer desde Store
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar persistencia
+    inicializarPersistencia();
     
-    // Verificar si está vacío
-    if (storeEstaVacio()) {
-        mostrarEstadoVacio(contenedor);
-        return;
-    }
-
-    // Renderizar según la vista actual
-    if (vistaActual === 'list') {
-        contenedor.innerHTML = `
-            <div class="templates-list">
-                ${plantillas.map(template => template.render()).join('')}
-            </div>
-        `;
-    } else {
-        contenedor.innerHTML = `
-            <div class="templates-grid">
-                ${plantillas.map(template => template.renderGrid()).join('')}
-            </div>
-        `;
-    }
-
-    console.log('🔄 UI: Plantillas renderizadas desde Store');
-}
-
-/**
- * Mostrar estado vacío con mensaje dinámico
- * @param {HTMLElement} contenedor - Contenedor donde mostrar el mensaje
- */
-function mostrarEstadoVacio(contenedor) {
-    const infoStorage = Store.getEstadisticas().infoLocalStorage;
-    const tieneStorage = infoStorage && infoStorage.existe;
+    // Configurar event listeners
+    configurarEventListeners();
     
-    contenedor.innerHTML = `
-        <div class="empty-state">
-            <div class="icon">📝</div>
-            <h4>No hay plantillas guardadas</h4>
-            <p>El Store está vacío. Crea tu primera plantilla usando el formulario de arriba</p>
-            <small style="color: #999; margin-top: 10px;">
-                Estado: ${tieneStorage ? 'LocalStorage vacío' : 'Sin datos guardados'} | 0 plantillas
-            </small>
-        </div>
-    `;
-}
-
-/**
- * Actualizar estadísticas en la UI
- */
-function actualizarEstadisticasUI() {
-    const contador = document.getElementById('templateCount');
-    const estadisticas = Store.getEstadisticas();
-    const infoStorage = estadisticas.infoLocalStorage;
+    // Actualizar interfaz inicial
+    actualizarInterfaz();
     
-    // Texto principal
-    contador.textContent = `${estadisticas.total} plantilla${estadisticas.total !== 1 ? 's' : ''} en Store`;
+    // Mostrar estado de almacenamiento (Logro 1)
+    mostrarEstadoAlmacenamiento();
     
-    // Información adicional en tooltip
-    if (estadisticas.total > 0) {
-        const categoriasInfo = Object.entries(estadisticas.categorias)
-            .map(([cat, num]) => `${cat}: ${num}`)
-            .join(', ');
-        
-        const storageInfo = infoStorage && infoStorage.existe 
-            ? `LocalStorage: ${infoStorage.tamaño}` 
-            : 'Sin persistencia';
-        
-        contador.title = `Categorías: ${categoriasInfo}\n${storageInfo}`;
-    }
-    
-    // Actualizar indicador de persistencia
-    actualizarIndicadorPersistencia(infoStorage);
-}
-
-/**
- * Actualizar indicador visual de persistencia
- * @param {Object} infoStorage - Información del storage
- */
-function actualizarIndicadorPersistencia(infoStorage) {
-    const indicador = document.querySelector('.state-indicator');
-    if (indicador) {
-        if (infoStorage && infoStorage.existe) {
-            indicador.textContent = `💾 ${infoStorage.plantillas} guardadas`;
-            indicador.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
-        } else {
-            indicador.textContent = 'Sin persistencia';
-            indicador.style.background = 'linear-gradient(45deg, #ffc107, #fd7e14)';
-        }
-    }
-}
-
-/**
- * Actualizar toda la interfaz
- */
-function actualizarInterfazCompleta() {
-    renderizarPlantillasDesdeStore();
-    actualizarEstadisticasUI();
-}
-
-// ===== MANEJO DE FORMULARIO =====
-
-/**
- * Manejar envío del formulario para agregar plantilla
- * @param {Event} e - Evento del formulario
- */
-function manejarAgregarPlantilla(e) {
-    e.preventDefault();
-    
-    // Obtener datos del formulario
-    const titulo = document.getElementById('titulo').value.trim();
-    const mensaje = document.getElementById('mensaje').value.trim();
-    const hashtag = document.getElementById('hashtag').value.trim();
-    const categoria = document.getElementById('categoria').value;
-    
-    // Validar campos
-    if (!titulo || !mensaje || !hashtag || !categoria) {
-        mostrarNotificacion('Por favor, completa todos los campos requeridos', 'error');
-        return;
-    }
-    
-    // Formatear hashtag
-    const hashtagFormateado = hashtag.startsWith('#') ? hashtag : `#${hashtag}`;
-    
-    // Agregar al Store (auto-guardado se dispara automáticamente)
-    const exito = crearYAgregarPlantilla(titulo, mensaje, hashtagFormateado, categoria);
-    
-    if (exito) {
-        // Limpiar formulario
-        e.target.reset();
-        
-        // El mensaje de éxito se mostrará desde el sistema de persistencia
-        console.log('✅ Plantilla agregada desde UI al Store con persistencia');
-    } else {
-        mostrarNotificacion('Error al agregar la plantilla', 'error');
-    }
-}
-
-// ===== MANEJO DE ELIMINACIÓN =====
-
-/**
- * Eliminar plantilla desde la UI
- * @param {string} id - ID de la plantilla a eliminar
- */
-function eliminarPlantillaDesdeUI(id) {
-    // Confirmar eliminación
-    if (!confirm('¿Estás seguro de que deseas eliminar esta plantilla?')) {
-        return;
-    }
-    
-    // Eliminar del Store (auto-guardado se dispara automáticamente)
-    const exito = Store.eliminarPlantilla(id);
-    
-    if (exito) {
-        // El mensaje de éxito se mostrará desde el sistema de persistencia
-        console.log('✅ Plantilla eliminada desde UI del Store con persistencia');
-    } else {
-        mostrarNotificacion('Error al eliminar la plantilla', 'error');
-    }
-}
-
-// Hacer función global para uso en onclick
-window.eliminarPlantilla = eliminarPlantillaDesdeUI;
-
-// ===== FUNCIÓN RESET COMPLETA (HU3) =====
-
-/**
- * Eliminar todas las plantillas (HU3)
- * Botón para reset completo de Store y LocalStorage
- */
-function eliminarTodasLasPlantillas() {
-    // Usar la función de reseteo completo de persistencia
-    const exito = resetearAplicacionCompleta();
-    
-    if (exito) {
-        console.log('🧹 Todas las plantillas eliminadas desde UI');
-        
-        // Actualizar interfaz después de un breve delay
-        setTimeout(() => {
-            actualizarInterfazCompleta();
-        }, 100);
-    }
-}
-
-// Hacer función global para uso en onclick
-window.eliminarTodasLasPlantillas = eliminarTodasLasPlantillas;
-
-// ===== MANEJO DE VISTAS =====
-
-/**
- * Cambiar vista entre lista y grilla
- * @param {Event} e - Evento del botón
- */
-function manejarCambioVista(e) {
-    // Actualizar botones activos
-    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-    e.target.classList.add('active');
-    
-    // Cambiar vista
-    vistaActual = e.target.dataset.view;
-    
-    // Re-renderizar con nueva vista
-    renderizarPlantillasDesdeStore();
-    
-    console.log('👁️ Vista cambiada a:', vistaActual);
-}
-
-// ===== MENSAJES DE NOTIFICACIÓN =====
-
-/**
- * Mostrar notificación en la UI
- * @param {string} mensaje - Mensaje a mostrar
- * @param {string} tipo - Tipo de notificación ('success' | 'error' | 'info' | 'warning')
- * @returns {HTMLElement} Elemento de notificación creado
- */
-function mostrarNotificacion(mensaje, tipo = 'success') {
-    // Remover notificaciones anteriores
-    const notificacionesAnteriores = document.querySelectorAll('.notification');
-    notificacionesAnteriores.forEach(n => n.remove());
-    
-    // Crear nueva notificación
-    const notificacion = document.createElement('div');
-    notificacion.className = `notification notification-${tipo}`;
-    notificacion.innerHTML = `
-        <span>${mensaje}</span>
-        <button class="notification-close" onclick="this.parentElement.remove()">×</button>
-    `;
-    
-    // Colores según tipo
-    const colores = {
-        success: '#25d366',
-        error: '#dc3545',
-        warning: '#ffc107',
-        info: '#17a2b8'
-    };
-    
-    // Estilos inline para la notificación
-    Object.assign(notificacion.style, {
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        padding: '15px 20px',
-        borderRadius: '8px',
-        color: tipo === 'warning' ? '#212529' : 'white',
-        fontWeight: '600',
-        zIndex: '1000',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '15px',
-        minWidth: '300px',
-        backgroundColor: colores[tipo] || colores.info,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        animation: 'slideInRight 0.3s ease'
-    });
-    
-    // Estilo del botón de cierre
-    const botonCerrar = notificacion.querySelector('.notification-close');
-    Object.assign(botonCerrar.style, {
-        background: 'rgba(255,255,255,0.2)',
-        border: 'none',
-        color: tipo === 'warning' ? '#212529' : 'white',
-        width: '24px',
-        height: '24px',
-        borderRadius: '50%',
-        cursor: 'pointer',
-        fontSize: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-    });
-    
-    document.body.appendChild(notificacion);
-    
-    // Auto-remover después de 5 segundos
-    setTimeout(() => {
-        if (notificacion && notificacion.parentElement) {
-            notificacion.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => notificacion.remove(), 300);
-        }
-    }, 5000);
-    
-    return notificacion;
-}
-
-// Hacer función disponible globalmente para persistencia
-window.mostrarNotificacion = mostrarNotificacion;
-
-// ===== SUSCRIPCIÓN AL STORE =====
-
-/**
- * Configurar suscripción a cambios del Store
- * El Store notificará cuando haya cambios y actualizaremos la UI
- */
-function configurarSuscripcionStore() {
-    cancelarSuscripcionStore = Store.suscribirse((evento) => {
-        console.log('📢 Store notificó cambio:', evento.tipo, evento.datos);
-        
-        // Actualizar interfaz cuando el Store cambie
-        actualizarInterfazCompleta();
-        
-        // Manejar eventos específicos
-        switch (evento.tipo) {
-            case 'STORE_INICIALIZADO':
-                console.log('🚀 UI: Store inicializado con persistencia');
-                mostrarNotificacion(
-                    `Store inicializado: ${evento.datos.plantillas} plantillas desde ${evento.datos.fuente}`,
-                    'info'
-                );
-                break;
-            case 'PLANTILLA_AGREGADA':
-                console.log('🟢 UI: Nueva plantilla detectada en Store');
-                break;
-            case 'PLANTILLA_ELIMINADA':
-                console.log('🔴 UI: Plantilla eliminada detectada en Store');
-                break;
-            case 'TODAS_ELIMINADAS':
-                console.log('🧹 UI: Todas las plantillas eliminadas del Store');
-                break;
-            case 'RECARGADO_DESDE_PERSISTENCIA':
-                console.log('🔄 UI: Store recargado desde persistencia');
-                mostrarNotificacion('Datos recargados desde LocalStorage', 'info');
-                break;
-        }
-    });
-    
-    console.log('🔔 Suscripción al Store configurada');
-}
-
-// ===== INICIALIZACIÓN =====
+    console.log('🚀 Aplicación WhatsApp Templates iniciada');
+});
 
 /**
  * Configurar todos los event listeners
  */
 function configurarEventListeners() {
-    // Formulario de nueva plantilla
-    const formulario = document.getElementById('templateForm');
-    if (formulario) {
-        formulario.addEventListener('submit', manejarAgregarPlantilla);
+    // Formulario de plantillas
+    const form = document.getElementById('template-form');
+    if (form) {
+        form.addEventListener('submit', manejarEnvioFormulario);
     }
     
-    // Botones de cambio de vista
-    const botonesVista = document.querySelectorAll('.view-btn');
-    botonesVista.forEach(btn => {
-        btn.addEventListener('click', manejarCambioVista);
+    // Botón cancelar edición
+    const btnCancelar = document.getElementById('btn-cancelar');
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', cancelarEdicion);
+    }
+    
+    // Botón eliminar todo (HU3)
+    const btnEliminarTodo = document.getElementById('btn-eliminar-todo');
+    if (btnEliminarTodo) {
+        btnEliminarTodo.addEventListener('click', resetearPlantillas);
+    }
+    
+    // Botón recuperar última eliminada (Logro 2)
+    const btnRecuperar = document.getElementById('btn-recuperar');
+    if (btnRecuperar) {
+        btnRecuperar.addEventListener('click', recuperarUltimaEliminada);
+    }
+    
+    // Guardado automático en campos del formulario (HU1 Lab 16)
+    const inputs = ['nombre', 'contenido', 'categoria'];
+    inputs.forEach(campo => {
+        const input = document.getElementById(campo);
+        if (input) {
+            input.addEventListener('input', manejarCambioAutomatico);
+            input.addEventListener('blur', manejarCambioAutomatico);
+        }
     });
-    
-    // Botón de eliminar todo (si existe)
-    const botonEliminarTodo = document.getElementById('btnEliminarTodo');
-    if (botonEliminarTodo) {
-        botonEliminarTodo.addEventListener('click', eliminarTodasLasPlantillas);
+}
+
+/**
+ * HU1 Lab 16: Guardado automático al editar plantillas
+ */
+function manejarCambioAutomatico(event) {
+    if (plantillaEditandoId) {
+        // Debounce para evitar guardado excesivo
+        clearTimeout(window.autoSaveTimeout);
+        window.autoSaveTimeout = setTimeout(() => {
+            guardarEdicionAutomatica();
+        }, 1000); // Esperar 1 segundo después del último cambio
     }
 }
 
 /**
- * Inicializar aplicación con persistencia
+ * Guardar automáticamente los cambios durante la edición
  */
-function inicializarAplicacionConPersistencia() {
-    console.log('🚀 Inicializando aplicación con Store y Persistencia...');
+function guardarEdicionAutomatica() {
+    if (!plantillaEditandoId) return;
     
-    try {
-        // 1. Configurar event listeners
-        configurarEventListeners();
+    const nombre = document.getElementById('nombre').value.trim();
+    const contenido = document.getElementById('contenido').value.trim();
+    const categoria = document.getElementById('categoria').value.trim();
+    
+    if (nombre && contenido) {
+        const plantillaActualizada = Store.actualizar(plantillaEditandoId, {
+            nombre,
+            contenido,
+            categoria
+        });
         
-        // 2. Inicializar Store con datos de persistencia
-        Store.inicializar();
-        
-        // 3. Configurar Store con persistencia automática
-        configurarStoreConPersistencia();
-        
-        // 4. Configurar suscripción al Store para UI
-        configurarSuscripcionStore();
-        
-        // 5. Renderización inicial
-        actualizarInterfazCompleta();
-        
-        // 6. Log del estado inicial
-        const estadisticas = Store.getEstadisticas();
-        console.log('📊 Estado inicial:', estadisticas);
-        console.log('🎯 Aplicación lista con persistencia completa');
-        
-    } catch (error) {
-        console.error('❌ Error al inicializar aplicación:', error.message);
-        mostrarNotificacion('Error al inicializar la aplicación', 'error');
+        if (plantillaActualizada) {
+            // HU2 Lab 16: Sincronización instantánea del Store y UI
+            actualizarInterfaz();
+            mostrarMensajePersistencia('💾 Guardado automático', 'info');
+        }
     }
 }
 
 /**
- * Limpiar recursos antes de cerrar
+ * Manejar envío del formulario
  */
-function limpiarRecursos() {
-    if (cancelarSuscripcionStore) {
-        cancelarSuscripcionStore();
-        console.log('🔌 Suscripción al Store cancelada');
+function manejarEnvioFormulario(event) {
+    event.preventDefault();
+    
+    const nombre = document.getElementById('nombre').value.trim();
+    const contenido = document.getElementById('contenido').value.trim();
+    const categoria = document.getElementById('categoria').value.trim();
+    
+    if (!nombre || !contenido) {
+        mostrarMensajePersistencia('⚠️ Nombre y contenido son obligatorios', 'warning');
+        return;
+    }
+    
+    if (plantillaEditandoId) {
+        // Actualizar plantilla existente
+        const plantillaActualizada = Store.actualizar(plantillaEditandoId, {
+            nombre,
+            contenido,
+            categoria
+        });
+        
+        if (plantillaActualizada) {
+            mostrarMensajePersistencia('✅ Plantilla actualizada', 'success');
+        }
+    } else {
+        // Crear nueva plantilla
+        const nuevaPlantilla = new Template(nombre, contenido, categoria);
+        Store.agregar(nuevaPlantilla);
+        mostrarMensajePersistencia('✅ Plantilla creada', 'success');
+    }
+    
+    // HU2 Lab 16: Sincronización instantánea
+    limpiarFormulario();
+    actualizarInterfaz();
+    mostrarEstadoAlmacenamiento();
+}
+
+/**
+ * HU2: Actualizar interfaz sincronizada con el Store
+ */
+function actualizarInterfaz() {
+    const lista = document.getElementById('templates-list');
+    if (!lista) return;
+    
+    const plantillas = Store.obtenerTodas();
+    
+    if (plantillas.length === 0) {
+        lista.innerHTML = `
+            <div class="empty-state">
+                <p>📝 No hay plantillas guardadas</p>
+                <p class="text-muted">Crea tu primera plantilla usando el formulario</p>
+            </div>
+        `;
+        return;
+    }
+    
+    lista.innerHTML = plantillas.map(plantilla => `
+        <div class="template-item" data-id="${plantilla.id}">
+            <div class="template-header">
+                <h3>${escapeHtml(plantilla.nombre)}</h3>
+                <div class="template-actions">
+                    <button onclick="editarPlantilla(${plantilla.id})" class="btn-edit" title="Editar">
+                        ✏️
+                    </button>
+                    <button onclick="confirmarEliminarPlantilla(${plantilla.id})" class="btn-delete" title="Eliminar">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            <div class="template-content">
+                <p>${escapeHtml(plantilla.contenido)}</p>
+                ${plantilla.categoria ? `<span class="template-category">${escapeHtml(plantilla.categoria)}</span>` : ''}
+            </div>
+            <div class="template-meta">
+                <small>Creada: ${formatearFecha(plantilla.fechaCreacion)}</small>
+                ${plantilla.fechaModificacion !== plantilla.fechaCreacion ? 
+                    `<small>Modificada: ${formatearFecha(plantilla.fechaModificacion)}</small>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+/**
+ * HU3 Lab 16: Confirmación previa al eliminar plantilla
+ */
+function confirmarEliminarPlantilla(id) {
+    const plantilla = Store.obtenerPorId(id);
+    if (!plantilla) return;
+    
+    const confirmacion = confirm(
+        `¿Estás seguro de que deseas eliminar la plantilla "${plantilla.nombre}"?\n\n` +
+        'Esta acción no se puede deshacer.'
+    );
+    
+    if (confirmacion) {
+        ultimaPlantillaEliminada = plantilla; // Para recuperación (Logro 2)
+        const eliminada = Store.eliminar(id);
+        
+        if (eliminada) {
+            // HU2 Lab 16: Sincronización instantánea
+            actualizarInterfaz();
+            mostrarEstadoAlmacenamiento();
+            mostrarMensajePersistencia('🗑️ Plantilla eliminada', 'info');
+            
+            // Mostrar botón de recuperación
+            mostrarBotonRecuperacion();
+        }
     }
 }
 
-// ===== EVENTOS DE CICLO DE VIDA =====
-
-// Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', inicializarAplicacionConPersistencia);
-
-// Limpiar recursos antes de cerrar
-window.addEventListener('beforeunload', limpiarRecursos);
-
-// ===== FUNCIONES DE DEBUG =====
-
-// Funciones globales para debugging
-window.debugUI = {
-    renderizar: actualizarInterfazCompleta,
-    cambiarVista: (vista) => {
-        vistaActual = vista;
-        renderizarPlantillasDesdeStore();
-    },
-    mostrarNotificacion: mostrarNotificacion,
-    eliminarTodas: eliminarTodasLasPlantillas,
-    estadoVista: () => ({ 
-        vistaActual, 
-        suscrito: !!cancelarSuscripcionStore,
-        persistenciaHabilitada: typeof Persistence !== 'undefined'
-    }),
-    recargarDesdePersistencia: () => {
-        Store.recargarDesdePersistencia();
-        actualizarInterfazCompleta();
+/**
+ * Editar plantilla
+ */
+function editarPlantilla(id) {
+    const plantilla = Store.obtenerPorId(id);
+    if (!plantilla) return;
+    
+    plantillaEditandoId = id;
+    
+    // Llenar formulario
+    document.getElementById('nombre').value = plantilla.nombre;
+    document.getElementById('contenido').value = plantilla.contenido;
+    document.getElementById('categoria').value = plantilla.categoria || '';
+    
+    // Cambiar texto del botón
+    const btnSubmit = document.querySelector('#template-form button[type="submit"]');
+    if (btnSubmit) {
+        btnSubmit.textContent = 'Actualizar Plantilla';
     }
-};
+    
+    // Mostrar botón cancelar
+    const btnCancelar = document.getElementById('btn-cancelar');
+    if (btnCancelar) {
+        btnCancelar.style.display = 'inline-block';
+    }
+    
+    // Scroll al formulario
+    document.getElementById('template-form').scrollIntoView({ behavior: 'smooth' });
+}
 
-console.log('🔧 UI Debug disponible: window.debugUI');
+/**
+ * Cancelar edición
+ */
+function cancelarEdicion() {
+    limpiarFormulario();
+    mostrarMensajePersistencia('❌ Edición cancelada', 'info');
+}
+
+/**
+ * Limpiar formulario
+ */
+function limpiarFormulario() {
+    plantillaEditandoId = null;
+    
+    document.getElementById('nombre').value = '';
+    document.getElementById('contenido').value = '';
+    document.getElementById('categoria').value = '';
+    
+    const btnSubmit = document.querySelector('#template-form button[type="submit"]');
+    if (btnSubmit) {
+        btnSubmit.textContent = 'Agregar Plantilla';
+    }
+    
+    const btnCancelar = document.getElementById('btn-cancelar');
+    if (btnCancelar) {
+        btnCancelar.style.display = 'none';
+    }
+    
+    // Limpiar timeout de guardado automático
+    clearTimeout(window.autoSaveTimeout);
+}
+
+/**
+ * Logro 1: Mostrar estado de almacenamiento
+ */
+function mostrarEstadoAlmacenamiento() {
+    const estadoContainer = document.getElementById('storage-status');
+    if (!estadoContainer) return;
+    
+    const stats = Store.obtenerEstadisticas();
+    const fechaUltimaModificacion = stats.ultimaModificacion 
+        ? new Date(stats.ultimaModificacion).toLocaleString()
+        : 'Nunca';
+    
+    estadoContainer.innerHTML = `
+        <div class="storage-info">
+            📊 ${stats.total} plantillas guardadas | 
+            💾 Última actualización: ${fechaUltimaModificacion}
+        </div>
+    `;
+}
+
+/**
+ * Logro 2: Recuperar última plantilla eliminada
+ */
+function recuperarUltimaEliminada() {
+    if (!ultimaPlantillaEliminada) {
+        mostrarMensajePersistencia('ℹ️ No hay plantillas para recuperar', 'info');
+        return;
+    }
+    
+    // Crear nueva plantilla con los datos de la eliminada
+    const plantillaRecuperada = new Template(
+        ultimaPlantillaEliminada.nombre + ' (Recuperada)',
+        ultimaPlantillaEliminada.contenido,
+        ultimaPlantillaEliminada.categoria
+    );
+    
+    Store.agregar(plantillaRecuperada);
+    ultimaPlantillaEliminada = null; // Limpiar referencia
+    
+    // Sincronización instantánea
+    actualizarInterfaz();
+    mostrarEstadoAlmacenamiento();
+    ocultarBotonRecuperacion();
+    
+    mostrarMensajePersistencia('🔄 Plantilla recuperada', 'success');
+}
+
+/**
+ * Mostrar botón de recuperación
+ */
+function mostrarBotonRecuperacion() {
+    const btnRecuperar = document.getElementById('btn-recuperar');
+    if (btnRecuperar && ultimaPlantillaEliminada) {
+        btnRecuperar.style.display = 'inline-block';
+        btnRecuperar.textContent = `🔄 Recuperar "${ultimaPlantillaEliminada.nombre}"`;
+    }
+}
+
+/**
+ * Ocultar botón de recuperación
+ */
+function ocultarBotonRecuperacion() {
+    const btnRecuperar = document.getElementById('btn-recuperar');
+    if (btnRecuperar) {
+        btnRecuperar.style.display = 'none';
+    }
+}
+
+/**
+ * Utilidades
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatearFecha(fecha) {
+    return new Date(fecha).toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
